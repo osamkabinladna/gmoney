@@ -2,17 +2,29 @@ import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 import pandas as pd
 import joblib
-from snowflake.snowpark.context import get_active_session
+from snowflake.snowpark import Session
 from sklearn.metrics import accuracy_score, classification_report
 import re
 import plotly.graph_objects as go
 import tempfile
 import os
 
-# Get the active Snowflake session
+# Function to create a Snowflake session using secrets
 def get_snowflake_session():
     try:
-        return get_active_session()
+        # Set up Snowflake connection using Streamlit secrets
+        connection_parameters = {
+            "account": st.secrets["snowflake"]["account"],
+            "user": st.secrets["snowflake"]["user"],
+            "password": st.secrets["snowflake"]["password"],
+            "role": st.secrets["snowflake"]["role"],
+            "warehouse": st.secrets["snowflake"]["warehouse"],
+            "database": st.secrets["snowflake"]["database"],
+            "schema": st.secrets["snowflake"]["schema"]
+        }
+
+        # Create and return the Snowflake session
+        return Session.builder.configs(connection_parameters).create()
     except Exception as e:
         st.error(f"Error getting Snowflake session: {e}")
         return None

@@ -1,31 +1,18 @@
 import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
-import io
 import pandas as pd
 import joblib
-from snowflake.snowpark import Session
+from snowflake.snowpark.context import get_active_session
 from sklearn.metrics import accuracy_score, classification_report
 import re
 import plotly.graph_objects as go
 import tempfile
 import os
 
-# Function to create a Snowflake session using secrets
+# Get the active Snowflake session
 def get_snowflake_session():
     try:
-        # Set up Snowflake connection using Streamlit secrets
-        connection_parameters = {
-            "account": st.secrets["snowflake"]["account"],
-            "user": st.secrets["snowflake"]["user"],
-            "password": st.secrets["snowflake"]["password"],
-            "role": st.secrets["snowflake"]["role"],
-            "warehouse": st.secrets["snowflake"]["warehouse"],
-            "database": st.secrets["snowflake"]["database"],
-            "schema": st.secrets["snowflake"]["schema"]
-        }
-
-        # Create and return the Snowflake session
-        return Session.builder.configs(connection_parameters).create()
+        return get_active_session()
     except Exception as e:
         st.error(f"Error getting Snowflake session: {e}")
         return None
@@ -38,6 +25,7 @@ SNOWFLAKE_STAGE = '"STREAMLIT_DEMO"."STREAMLIT_SCHEMA"."STREAMLIT_STAGE"'
 def load_model_and_data():
     session = get_snowflake_session()
     if not session:
+        st.error("Failed to create Snowflake session.")
         return None, None, None, None, None, None, None
 
     try:
@@ -67,6 +55,7 @@ def load_model_and_data():
                 # Load the file using joblib
                 loaded_data[file] = joblib.load(local_file_path)
 
+        st.success("Model and data loaded successfully.")
         return (
             loaded_data["yuge75_experimental2.joblib.gz"],
             loaded_data["yuge75_validfull.joblib.gz"],
@@ -131,6 +120,10 @@ def calculate_technical_indicators(df):
     return df
 
 def calculate_validation_stats(model, valid_full, x_valid, y_valid):
+    if model is None:
+        st.error("Model is not loaded correctly. Please check your Snowflake connection and model file.")
+        return None, None
+
     predicted = model.predict(x_valid)
     predicted_probs = model.predict_proba(x_valid)
 
@@ -156,7 +149,6 @@ def calculate_validation_stats(model, valid_full, x_valid, y_valid):
         count='size',
         winrate=lambda x: (x > 0).mean() * 100
     ).reset_index()
-
 
     # Initialize the plot
     fig = go.Figure()
@@ -184,37 +176,6 @@ def calculate_validation_stats(model, valid_full, x_valid, y_valid):
     st.plotly_chart(fig)
 
     return valid_data, stats_df
-
-def plot_pdf_by_bin_plotly(positive_preds, bins, labels):
-    positive_preds['Prob_Bin'] = pd.cut(positive_preds['Confidence'] * 100, bins=bins, labels=labels, right=False)
-    fig = go.Figure()
-
-    for label in labels:
-        subset = positive_preds[positive_preds['Prob_Bin'] == label]
-        if not subset.empty:
-            kde = subset['Returns'].plot.kde()
-            x = kde.get_lines()[0].get_xdata()
-            y = kde.get_lines()[0].get_ydata()
-            fig.add_trace(go.Scatter(x=x, y=y, mode='lines', fill='tozeroy', name=f'Prob Bin: {label}'))
-            kde.remove()
-
-    # Add a red vertical line at the 0 Returns mark
-    fig.add_shape(
-        type='line',
-        x0=0, y0=0, x1=0, y1=1,  # Vertical line at x=0, from y=0 to y=1
-        line=dict(color='red', width=2, dash='dash'),
-        xref='x', yref='paper'  # Use 'x' axis reference for x and 'paper' reference for y
-    )
-
-    fig.update_layout(
-        title='PDF of Returns by Probability Bin',
-        xaxis_title='Return',
-        yaxis_title='Density',
-        template='plotly_dark',
-        legend_title_text='Probability Bins'
-    )
-
-    st.plotly_chart(fig)
 
 def prepare_data(uploaded_file):
     file_content = uploaded_file.read()
@@ -259,6 +220,10 @@ def main():
 
     model, valid_full, x_valid, y_valid, oob_full, x_oob, y_oob = load_model_and_data()
 
+    if model is None:
+        st.error("Model could not be loaded. Please check the Snowflake connection and model file.")
+        return
+
     uploaded_file = st.file_uploader("Upload your CSV file for inference", type=["csv"])
 
     if uploaded_file is not None:
@@ -276,30 +241,32 @@ def main():
     # Out of Distribution Validation Statistics
     st.title("OOD Validation Statistics")
     valid_data, stats_df = calculate_validation_stats(model, oob_full, x_oob, y_oob)
-    st.write("Statistics by Confidence Bin:")
-    st.write(stats_df)
+    if valid_data is not None:
+        st.write("Statistics by Confidence Bin:")
+        st.write(stats_df)
 
-    y_pred = model.predict(x_oob)
-    st.write(f"Accuracy: {accuracy_score(y_oob, y_pred)}")
+        y_pred = model.predict(x_oob)
+        st.write(f"Accuracy: {accuracy_score(y_oob, y_pred)}")
 
-    report_dict = classification_report(y_oob, y_pred, output_dict=True)
-    report_df = pd.DataFrame(report_dict).transpose()
-    st.write("Classification Report")
-    st.dataframe(report_df)
+        report_dict = classification_report(y_oob, y_pred, output_dict=True)
+        report_df = pd.DataFrame(report_dict).transpose()
+        st.write("Classification Report")
+        st.dataframe(report_df)
 
     # In Distribution Validation Statistics
     st.title("ID Validation Statistics")
     valid_data, stats_df = calculate_validation_stats(model, valid_full, x_valid, y_valid)
-    st.write("Statistics by Confidence Bin:")
-    st.write(stats_df)
+    if valid_data is not None:
+        st.write("Statistics by Confidence Bin:")
+        st.write(stats_df)
 
-    y_pred = model.predict(x_valid)
-    st.write(f"Accuracy: {accuracy_score(y_valid, y_pred)}")
+        y_pred = model.predict(x_valid)
+        st.write(f"Accuracy: {accuracy_score(y_valid, y_pred)}")
 
-    report_dict = classification_report(y_valid, y_pred, output_dict=True)
-    report_df = pd.DataFrame(report_dict).transpose()
-    st.write("Classification Report")
-    st.dataframe(report_df)
+        report_dict = classification_report(y_valid, y_pred, output_dict=True)
+        report_df = pd.DataFrame(report_dict).transpose()
+        st.write("Classification Report")
+        st.dataframe(report_df)
 
 if __name__ == "__main__":
     main()

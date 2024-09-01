@@ -1,5 +1,6 @@
 import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
+import io
 import pandas as pd
 import joblib
 from snowflake.snowpark import Session
@@ -254,7 +255,7 @@ def run_prediction(model, pred_data):
     return pred_nona.loc[:, ['Ticker', 'Predicted', 'Confidence']]
 
 def main():
-    st.image("title.png", use_column_width=True)
+    st.title("G Money app")
 
     model, valid_full, x_valid, y_valid, oob_full, x_oob, y_oob = load_model_and_data()
 

@@ -204,8 +204,18 @@ def prepare_data(uploaded_file):
         delimiter = ','
 
     # Load the data with the detected or default delimiter
-    evaluation_data = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter, skiprows=5, index_col='Dates')
-    evaluation_data.index = pd.to_datetime(evaluation_data.index)
+    try:
+        evaluation_data = pd.read_csv(
+            io.BytesIO(file_content),
+            delimiter=delimiter,
+            skiprows=5,
+            index_col='Dates',
+            error_bad_lines=False  # Skip lines with too many fields
+        )
+        evaluation_data.index = pd.to_datetime(evaluation_data.index)
+    except pd.errors.ParserError as e:
+        st.error(f"Error parsing CSV file: {e}")
+        return None
 
     evlist = split_dataset(evaluation_data)
     colnames = evlist[0].columns.tolist()
@@ -213,7 +223,12 @@ def prepare_data(uploaded_file):
         ev.columns = colnames
 
     # Re-read the file to obtain ticker names using the detected delimiter
-    tickernames = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter).loc[2, :].dropna().tolist()
+    try:
+        tickernames = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter, error_bad_lines=False).loc[2, :].dropna().tolist()
+    except pd.errors.ParserError as e:
+        st.error(f"Error reading ticker names from CSV file: {e}")
+        return None
+
     for cov in evlist:
         calculate_technical_indicators(cov)
 

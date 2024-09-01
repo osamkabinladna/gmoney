@@ -216,8 +216,9 @@ def prepare_data(uploaded_file):
         # Read the CSV with the correct delimiter and specified index column
         evaluation_data = pd.read_csv(
             io.BytesIO(file_content),
-            delimiter=delimiter,
+            delimiter=';',
             skiprows=5,
+            index_col='Dates'
         )
         print(evaluation_data.columns)
         evaluation_data.index = pd.to_datetime(evaluation_data.index)

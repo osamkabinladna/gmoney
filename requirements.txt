@@ -1,6 +1,6 @@
-streamlit
-pandas
-snowflake-snowpark-python
-scikit-learn
-plotly
-joblib
+streamlit==1.38.0
+pandas==2.2.2
+snowflake-snowpark-python==1.1.0  # Choose a version compatible with Python <= 3.10
+scikit-learn==1.3.1
+plotly==5.12.0
+joblib==1.3.2

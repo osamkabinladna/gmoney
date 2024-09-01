@@ -195,48 +195,17 @@ def calculate_validation_stats(model, valid_full, x_valid, y_valid):
 def prepare_data(uploaded_file):
     file_content = uploaded_file.read()
 
-    # Automatically detect the delimiter
-    try:
-        dialect = csv.Sniffer().sniff(file_content[:1024].decode('utf-8'))
-        delimiter = dialect.delimiter
-    except csv.Error:
-        # Default to comma if delimiter detection fails
-        delimiter = ','
+    # Use `on_bad_lines='skip'` to handle lines with an unexpected number of fields
+    evaluation_data = pd.read_csv(io.BytesIO(file_content), skiprows=5, index_col='Dates')
 
-    # Load the data with the detected or default delimiter
-    try:
-        # Attempt to read the CSV to check for the 'Dates' column
-        df_preview = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter, nrows=5)
-
-        # Check if 'Dates' column is present
-        if 'Dates' not in df_preview.columns:
-            st.error("The CSV file does not contain a 'Dates' column. Please check the file format.")
-            return None
-
-        # Read the CSV with the correct delimiter and specified index column
-        evaluation_data = pd.read_csv(
-            io.BytesIO(file_content),
-            delimiter=';',
-            skiprows=5,
-        )
-        st.write(evaluation_data.columns)
-        evaluation_data.index = pd.to_datetime(evaluation_data.index)
-    except pd.errors.ParserError as e:
-        st.error(f"Error parsing CSV file: {e}")
-        return None
+    evaluation_data.index = pd.to_datetime(evaluation_data.index)
 
     evlist = split_dataset(evaluation_data)
     colnames = evlist[0].columns.tolist()
     for ev in evlist:
         ev.columns = colnames
 
-    # Re-read the file to obtain ticker names using the detected delimiter
-    try:
-        tickernames = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter, on_bad_lines='skip').loc[2, :].dropna().tolist()
-    except pd.errors.ParserError as e:
-        st.error(f"Error reading ticker names from CSV file: {e}")
-        return None
-
+    tickernames = pd.read_csv(io.BytesIO(file_content)).loc[2, :].dropna().tolist()
     for cov in evlist:
         calculate_technical_indicators(cov)
 

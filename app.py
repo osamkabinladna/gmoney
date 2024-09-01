@@ -219,7 +219,6 @@ def prepare_data(uploaded_file):
             delimiter=delimiter,
             skiprows=5,
             index_col='Dates',
-            on_bad_lines='skip'  # Skip lines with too many fields
         )
         evaluation_data.index = pd.to_datetime(evaluation_data.index)
     except pd.errors.ParserError as e:

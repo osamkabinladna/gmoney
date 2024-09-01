@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import tempfile
 import os
 import io
+import csv
 import matplotlib.pyplot as plt
 
 # Function to create a Snowflake session using secrets
@@ -193,7 +194,17 @@ def calculate_validation_stats(model, valid_full, x_valid, y_valid):
 
 def prepare_data(uploaded_file):
     file_content = uploaded_file.read()
-    evaluation_data = pd.read_csv(io.BytesIO(file_content), skiprows=5, index_col='Dates')
+
+    # Automatically detect the delimiter
+    try:
+        dialect = csv.Sniffer().sniff(file_content[:1024].decode('utf-8'))
+        delimiter = dialect.delimiter
+    except csv.Error:
+        # Default to comma if delimiter detection fails
+        delimiter = ','
+
+    # Load the data with the detected or default delimiter
+    evaluation_data = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter, skiprows=5, index_col='Dates')
     evaluation_data.index = pd.to_datetime(evaluation_data.index)
 
     evlist = split_dataset(evaluation_data)
@@ -201,7 +212,8 @@ def prepare_data(uploaded_file):
     for ev in evlist:
         ev.columns = colnames
 
-    tickernames = pd.read_csv(io.BytesIO(file_content)).loc[2, :].dropna().tolist()
+    # Re-read the file to obtain ticker names using the detected delimiter
+    tickernames = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter).loc[2, :].dropna().tolist()
     for cov in evlist:
         calculate_technical_indicators(cov)
 

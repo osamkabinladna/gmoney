@@ -8,6 +8,8 @@ import re
 import plotly.graph_objects as go
 import tempfile
 import os
+import io
+import matplotlib.pyplot as plt
 
 # Function to create a Snowflake session using secrets
 def get_snowflake_session():

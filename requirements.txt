@@ -4,3 +4,4 @@ snowflake-snowpark-python
 scikit-learn
 plotly
 joblib
+matplotlib

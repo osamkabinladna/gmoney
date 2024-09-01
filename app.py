@@ -220,6 +220,7 @@ def prepare_data(uploaded_file):
             skiprows=5,
             index_col='Dates',
         )
+        st.write(evaluation_data.columns)
         evaluation_data.index = pd.to_datetime(evaluation_data.index)
     except pd.errors.ParserError as e:
         st.error(f"Error parsing CSV file: {e}")

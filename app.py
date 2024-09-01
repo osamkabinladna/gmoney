@@ -192,6 +192,7 @@ def calculate_validation_stats(model, valid_full, x_valid, y_valid):
 
     return valid_data, stats_df
 
+
 def prepare_data(uploaded_file):
     file_content = uploaded_file.read()
 
@@ -210,7 +211,7 @@ def prepare_data(uploaded_file):
             delimiter=delimiter,
             skiprows=5,
             index_col='Dates',
-            error_bad_lines=False  # Skip lines with too many fields
+            on_bad_lines='skip'  # Skip lines with too many fields
         )
         evaluation_data.index = pd.to_datetime(evaluation_data.index)
     except pd.errors.ParserError as e:
@@ -224,7 +225,7 @@ def prepare_data(uploaded_file):
 
     # Re-read the file to obtain ticker names using the detected delimiter
     try:
-        tickernames = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter, error_bad_lines=False).loc[2, :].dropna().tolist()
+        tickernames = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter, on_bad_lines='skip').loc[2, :].dropna().tolist()
     except pd.errors.ParserError as e:
         st.error(f"Error reading ticker names from CSV file: {e}")
         return None

@@ -192,7 +192,6 @@ def calculate_validation_stats(model, valid_full, x_valid, y_valid):
 
     return valid_data, stats_df
 
-
 def prepare_data(uploaded_file):
     file_content = uploaded_file.read()
 
@@ -206,6 +205,15 @@ def prepare_data(uploaded_file):
 
     # Load the data with the detected or default delimiter
     try:
+        # Attempt to read the CSV to check for the 'Dates' column
+        df_preview = pd.read_csv(io.BytesIO(file_content), delimiter=delimiter, nrows=5)
+
+        # Check if 'Dates' column is present
+        if 'Dates' not in df_preview.columns:
+            st.error("The CSV file does not contain a 'Dates' column. Please check the file format.")
+            return None
+
+        # Read the CSV with the correct delimiter and specified index column
         evaluation_data = pd.read_csv(
             io.BytesIO(file_content),
             delimiter=delimiter,
